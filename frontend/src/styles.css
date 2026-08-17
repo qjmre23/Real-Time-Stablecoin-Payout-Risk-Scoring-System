@@ -200,8 +200,12 @@ textarea { resize: vertical; min-height: 80px; }
 .field-help { margin: -6px 0 0; color: var(--muted); font-size: 10px; line-height: 1.55; }
 .job-list { display: flex; flex-direction: column; }
 .job-list article { padding: 13px 16px; border-bottom: 1px solid var(--line); }
-.job-list article > div:first-child { display: flex; align-items: center; gap: 8px; font-size: 10px; }
-.job-list article > div:first-child > span:last-child { margin-left: auto; color: var(--muted); }
+.job-row { display: flex; align-items: center; gap: 10px; }
+.job-heading { min-width: 0; flex: 1; display: flex; align-items: center; gap: 8px; font-size: 10px; }
+.job-heading > span:last-child { margin-left: auto; color: var(--muted); }
+.stop-job-button { width: 31px; height: 31px; flex: 0 0 31px; display: grid; place-items: center; border: 1px solid rgba(255,93,98,.42); background: rgba(255,93,98,.08); color: #ff8b8e; border-radius: 4px; cursor: pointer; }
+.stop-job-button:hover { border-color: rgba(255,93,98,.75); color: #ffd0d1; }
+.stop-job-button:disabled { opacity: .45; cursor: wait; }
 .job-list p { color: var(--muted); font-size: 9px; margin: 7px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .job-progress { height: 3px; background: #222a34; margin-top: 9px; }
 .job-progress span { display: block; height: 100%; background: var(--cyan); }

@@ -17,6 +17,7 @@ import {
   Settings,
   ShieldAlert,
   ShieldCheck,
+  Square,
   TerminalSquare,
   WalletCards,
   X
@@ -403,6 +404,7 @@ function TrainingView({ localEnabled, versions, refreshVersions }: { localEnable
   const [collections, setCollections] = useState<CollectionJob[]>([]);
   const [trainings, setTrainings] = useState<TrainingJob[]>([]);
   const [message, setMessage] = useState("");
+  const [cancelingCollectionId, setCancelingCollectionId] = useState("");
   const isLocalHost = ["localhost", "127.0.0.1"].includes(location.hostname);
   const canOperate = localEnabled && isLocalHost;
 
@@ -443,6 +445,21 @@ function TrainingView({ localEnabled, versions, refreshVersions }: { localEnable
       setMessage(`Imported ${result.records} current Etherscan risk labels. Untagged gas users were ignored.`);
     } catch (reason) { setMessage(reason instanceof Error ? reason.message : String(reason)); }
   }
+  async function cancelCollection(jobId: string) {
+    const confirmed = window.confirm(`Stop collection job ${jobId}? This keeps any saved checkpoint data, but the active run will be cancelled.`);
+    if (!confirmed) return;
+    setCancelingCollectionId(jobId);
+    setMessage(`Stopping collection job ${jobId}...`);
+    try {
+      const result = await api.request<{ status: string; message?: string }>(`/collection/cancel/${encodeURIComponent(jobId)}`, { method: "POST" });
+      setMessage(result.message || `Collection job ${jobId} marked ${result.status}.`);
+      await refresh();
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setCancelingCollectionId("");
+    }
+  }
   async function startTraining() {
     setMessage("Starting leakage-safe training...");
     try {
@@ -470,7 +487,7 @@ function TrainingView({ localEnabled, versions, refreshVersions }: { localEnable
       </div>
       {message && <div className="status-message">{message}</div>}
       <div className="training-grid lower-grid">
-        <Panel title="Collection jobs" meta="Checkpoints survive restarts"><JobList jobs={collections} kind="collection" /></Panel>
+        <Panel title="Collection jobs" meta="Checkpoints survive restarts"><JobList jobs={collections} kind="collection" canCancel={canOperate} cancelingId={cancelingCollectionId} onCancel={cancelCollection} /></Panel>
         <Panel title="Training jobs" meta="Progress and real held-out metrics"><JobList jobs={trainings} kind="training" /></Panel>
       </div>
       <Panel title="Version history" meta="Activate an earlier model without deleting newer artifacts">
@@ -480,8 +497,20 @@ function TrainingView({ localEnabled, versions, refreshVersions }: { localEnable
   );
 }
 
-function JobList({ jobs, kind }: { jobs: Array<CollectionJob | TrainingJob>; kind: "collection" | "training" }) {
-  return <div className="job-list">{jobs.slice(0, 8).map((job) => { const collection = job as CollectionJob; const training = job as TrainingJob; const id = kind === "collection" ? collection.job_id : training.run_id; const progress = kind === "collection" ? Math.min(1, (collection.discovered || 0) / Math.max(collection.settings?.target_wallets || 1, 1)) : training.progress || 0; const detail = kind === "collection" ? `${fmt.format(collection.discovered || 0)} wallets` : `${training.token.toUpperCase()} / ${training.model}`; return <article key={id}><div><strong className="mono">{id}</strong><DecisionBadge decision={job.status.toUpperCase()} /><span>{detail}</span></div><div className="job-progress"><span style={{ width: `${progress * 100}%` }} /></div><p>{job.message}</p></article>; })}{!jobs.length && <Empty text={`No ${kind} jobs yet`} />}</div>;
+function JobList({
+  jobs,
+  kind,
+  canCancel = false,
+  cancelingId = "",
+  onCancel
+}: {
+  jobs: Array<CollectionJob | TrainingJob>;
+  kind: "collection" | "training";
+  canCancel?: boolean;
+  cancelingId?: string;
+  onCancel?: (jobId: string) => void;
+}) {
+  return <div className="job-list">{jobs.slice(0, 8).map((job) => { const collection = job as CollectionJob; const training = job as TrainingJob; const id = kind === "collection" ? collection.job_id : training.run_id; const progress = kind === "collection" ? Math.min(1, (collection.discovered || 0) / Math.max(collection.settings?.target_wallets || 1, 1)) : training.progress || 0; const detail = kind === "collection" ? `${fmt.format(collection.discovered || 0)} wallets` : `${training.token.toUpperCase()} / ${training.model}`; const status = job.status.toLowerCase(); const canStop = kind === "collection" && canCancel && onCancel && ["queued", "running", "collecting"].includes(status); return <article key={id}><div className="job-row"><div className="job-heading"><strong className="mono">{id}</strong><DecisionBadge decision={job.status.toUpperCase()} /><span>{detail}</span></div>{canStop && <button className="stop-job-button" title={`Stop collection job ${id}`} disabled={cancelingId === id} onClick={() => onCancel(id)}>{cancelingId === id ? <RefreshCw className="spin" size={14} /> : <Square size={14} />}</button>}</div><div className="job-progress"><span style={{ width: `${progress * 100}%` }} /></div><p>{job.message}</p></article>; })}{!jobs.length && <Empty text={`No ${kind} jobs yet`} />}</div>;
 }
 
 function SettingsView({ health, onSaved }: { health: Health | null; onSaved: () => void }) {
