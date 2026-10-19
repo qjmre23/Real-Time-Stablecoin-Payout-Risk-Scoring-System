@@ -4,7 +4,7 @@
 
 **Problem:** wallet_check.py fails with "No recognized tokens found" even for valid USDT addresses
 
-**Solution:** Multi-level token detection + manual override + debug mode
+
 
 ---
 
